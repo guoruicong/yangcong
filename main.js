@@ -6523,3 +6523,261 @@ window.addEventListener('beforeunload', () => {
     localStorage.setItem(SAVE_KEY_V24, JSON.stringify(game));
   }
 });
+
+
+
+
+/* ===== 第二十五版：轮回印与高阶突破改版 ===== */
+const SAVE_KEY_V25 = 'xiuxian_v25_save';
+const HUASHEN_REALM_INDEX_V25 = 19;
+
+// 把原来的“悟性”改成纯成长向，不再提供永久突破率
+if (typeof REBIRTH_TALENTS_V17 !== 'undefined' && REBIRTH_TALENTS_V17.insight) {
+  REBIRTH_TALENTS_V17.insight.name = '道心';
+  REBIRTH_TALENTS_V17.insight.desc = '永久提高少量攻击与生命。突破率改为临时轮回印注入。';
+}
+
+const createNewGameV24 = createNewGame;
+createNewGame = function(meta = {}) {
+  const g = createNewGameV24(meta);
+  g.breakthroughMarkInvest = Number(meta.breakthroughMarkInvest) || 0;
+  g.version = 25;
+  return g;
+};
+
+function ensureV25State() {
+  if (!game || typeof game !== 'object') return;
+  if (!Number.isFinite(game.breakthroughMarkInvest)) game.breakthroughMarkInvest = 0;
+  game.version = 25;
+}
+
+// 固定轮回印规则：修到化神及以上，每次轮回只给 1 枚
+calculateRebirthGain = function() {
+  return game.realmIndex >= HUASHEN_REALM_INDEX_V25 ? 1 : 0;
+};
+
+const getSpentSoulMarksV24 = getSpentSoulMarksV17;
+getSpentSoulMarksV17 = function() {
+  ensureV25State();
+  return getSpentSoulMarksV24() + (game.breakthroughMarkInvest || 0);
+};
+
+const getPermanentBonusV24 = getPermanentBonusV17;
+getPermanentBonusV17 = function() {
+  ensureV25State();
+  const base = getPermanentBonusV24();
+  // 永久突破率归零，改成临时突破印；给 insight 一点基础属性，避免这个天赋变废
+  const insightLv = getTalentLevelV17 ? getTalentLevelV17('insight') : 0;
+  base.breakBonus = 0;
+  base.atk += insightLv * 2;
+  base.hp += insightLv * 10;
+  return base;
+};
+
+function investBreakthroughMarksV25(amount = 1) {
+  ensureV25State();
+  if (game.realmIndex < HUASHEN_REALM_INDEX_V25) {
+    addLog('化神之前的突破暂时不吃轮回印加成。先把境界顶上去。', 'warn');
+    return;
+  }
+  const available = getAvailableSoulMarksV17();
+  if (available < amount) {
+    addLog(`可用轮回印不足，当前只剩 ${available}。`, 'warn');
+    return;
+  }
+  game.breakthroughMarkInvest += amount;
+  addLog(`你向下一次突破注入了 ${amount} 枚轮回印。失败会清空这部分加成，而且印会直接消耗。`, 'rare');
+  updateUI();
+}
+function clearBreakthroughMarksV25() {
+  ensureV25State();
+  if (game.breakthroughMarkInvest <= 0) {
+    addLog('当前没有待注入的突破轮回印。', 'muted');
+    return;
+  }
+  game.breakthroughMarkInvest = 0;
+  addLog('你撤回了本次突破预留的轮回印。它们重新回到可分配状态。', 'good');
+  updateUI();
+}
+
+const breakthroughV24 = breakthrough;
+breakthrough = function() {
+  const realm = getRealm();
+  if (game.realmIndex >= REALMS.length - 1) {
+    addLog('你已经摸到当前版本上限了，再往上修得等下一个大版本。', 'warn');
+    return;
+  }
+  if (game.exp < realm.need) {
+    addLog(`修为不足，突破 ${realm.key} 还差 ${realm.need - Math.floor(game.exp)}。`, 'warn');
+    return;
+  }
+
+  const stats = calcPlayerStats();
+  let rate = 0.55 + game.rootBonus * 0.08 + stats.breakBonus / 100;
+
+  if (game.realmIndex >= 9) rate -= 0.05;
+  if (game.realmIndex >= 13) rate -= 0.08;
+
+  // 化神之后难度明显提高
+  if (game.realmIndex >= 19) rate -= 0.14;
+  if (game.realmIndex >= 20) rate -= 0.05;
+  if (game.realmIndex >= 23) rate -= 0.07;
+  if (game.realmIndex >= 26) rate -= 0.08;
+
+  const invest = game.breakthroughMarkInvest || 0;
+  const tempBonus = game.realmIndex >= HUASHEN_REALM_INDEX_V25 ? invest * 0.08 : 0;
+  rate += tempBonus;
+  rate = clamp(rate, 0.08, 0.88);
+
+  const investedNow = invest;
+  const tempPct = Math.round(tempBonus * 100);
+
+  if (Math.random() < rate) {
+    game.realmIndex += 1;
+    game.exp = 0;
+    game.breakthroughBonus = 0;
+    if (investedNow > 0) {
+      game.soulMarks = Math.max(0, game.soulMarks - investedNow);
+      game.breakthroughMarkInvest = 0;
+      addLog(`突破成功！你踏入【${getRealm().key}】。本次注入的 ${investedNow} 枚轮回印已消耗。`, 'rare');
+    } else {
+      addLog(`突破成功！你踏入【${getRealm().key}】。人还是这个人，气场已经不是了。`, 'rare');
+    }
+  } else {
+    const loseRatio = game.realmIndex >= HUASHEN_REALM_INDEX_V25 ? 0.32 : 0.22;
+    const lose = Math.floor(realm.need * loseRatio);
+    game.exp = Math.max(0, game.exp - lose);
+    if (investedNow > 0) {
+      game.soulMarks = Math.max(0, game.soulMarks - investedNow);
+      game.breakthroughMarkInvest = 0;
+      addLog(`突破失败，修为回落 ${lose}。临时突破率 +${tempPct}% 已重置，你得重新积攒轮回印。`, 'danger');
+    } else {
+      addLog(`突破失败，修为回落 ${lose}。化神之后的坎确实更硬。`, 'danger');
+    }
+  }
+  updateUI();
+};
+
+const renderRebirthV24 = renderRebirth;
+renderRebirth = function() {
+  renderRebirthV24();
+  ensureV25State();
+  const panel = document.getElementById('rebirthPanel');
+  if (!panel) return;
+
+  const gain = calculateRebirthGain();
+  const afterHuashen = game.realmIndex >= HUASHEN_REALM_INDEX_V25;
+  const tempPct = (game.breakthroughMarkInvest || 0) * 8;
+
+  panel.insertAdjacentHTML('afterbegin', `
+    <div class="info-card breakthrough-mark-box">
+      <div class="card-top">
+        <div>
+          <h3>轮回印规则调整</h3>
+          <div class="rank">化神及以上每次轮回固定获得 1 枚轮回印</div>
+        </div>
+        <span class="tiny-tag gold">${gain > 0 ? '本次可得 1 枚' : '未到化神，不得印'}</span>
+      </div>
+      <p>轮回印现在更稀缺。它们仍然能用于永久成长，也能临时注入下一次高阶突破。化神之后突破难很多，临时突破率失败会清空并直接消耗这部分印。</p>
+      <div class="small-grid">
+        <div class="meta-chip">当前轮回印：${game.soulMarks}</div>
+        <div class="meta-chip">可分配：${getAvailableSoulMarksV17()}</div>
+        <div class="meta-chip">临时突破印：${game.breakthroughMarkInvest}</div>
+        <div class="meta-chip">临时突破率：+${tempPct}%</div>
+      </div>
+      <div class="card-actions">
+        <button class="inline-btn" onclick="investBreakthroughMarksV25()">注入 1 枚</button>
+        <button class="inline-btn" onclick="clearBreakthroughMarksV25()">撤回注入</button>
+      </div>
+      <p class="note-line">${afterHuashen ? '你已到化神及以上，这个机制现在生效。' : '化神之前先安心修，不必急着把轮回印砸进突破。'}</p>
+    </div>
+  `);
+};
+
+const renderOverviewV24 = renderOverview;
+renderOverview = function() {
+  renderOverviewV24();
+  ensureV25State();
+  const goalPanel = document.getElementById('goalPanel');
+  if (!goalPanel || goalPanel.innerHTML.includes('轮回印新规')) return;
+  goalPanel.insertAdjacentHTML('beforeend', `<div class="tip-item"><b>轮回印新规</b><small>现在修到化神及以上每次轮回只给 1 枚轮回印。化神后的突破更难，可临时注入轮回印提升突破率，但失败会清空并消耗这部分印。</small></div>`);
+};
+
+function bootFromStorageV25() {
+  const direct = localStorage.getItem(SAVE_KEY_V25);
+  if (direct) {
+    game = JSON.parse(direct);
+    normalizeGame();
+    ensureV25State();
+    handleOfflineGain();
+    addLog('你从第二十五版存档中醒来。轮回印和高阶突破规则已切到新版。', 'rare');
+    return true;
+  }
+  if (typeof bootFromStorageV20 === 'function' && bootFromStorageV20()) {
+    ensureV25State();
+    addLog('已从旧存档迁入第二十五版。轮回印现在更稀缺，化神后的突破也更硬了。', 'rare');
+    return true;
+  }
+  return false;
+}
+
+const updateUIV24 = updateUI;
+updateUI = function() {
+  ensureV25State();
+  updateUIV24();
+  document.title = '凡尘问道录 · 第二十五版';
+};
+
+function saveGame() {
+  ensureV25State();
+  game.lastSeen = Date.now();
+  localStorage.setItem(SAVE_KEY_V25, JSON.stringify(game));
+  addLog('第二十五版存档成功。轮回印分配和突破注入进度都会被保留。', 'good');
+}
+function loadGame() {
+  if (!bootFromStorageV25()) {
+    addLog('没有找到可读取的存档。', 'warn');
+    return;
+  }
+  autoEquipBest(false);
+  renderCombatPanel();
+  updateUI();
+}
+function resetGame() {
+  localStorage.removeItem(SAVE_KEY_V25);
+  const selectedStyle = (game && game.openingStyle) ? game.openingStyle : 'balanced';
+  game = createNewGame({ openingStyle: selectedStyle });
+  normalizeGame();
+  ensureV25State();
+  if (typeof applyOpeningStyleOnceV17 === 'function') applyOpeningStyleOnceV17(game);
+  addLog(`新一世开启，你觉醒灵根：${game.rootName}。第二十五版里，轮回印会更难攒，也更值钱。`, 'rare');
+  updateUI();
+}
+function initV25() {
+  const hasSave = bootFromStorageV25();
+  if (!hasSave) {
+    game = createNewGame({ openingStyle: 'balanced' });
+    normalizeGame();
+    ensureV25State();
+    if (typeof applyOpeningStyleOnceV17 === 'function') applyOpeningStyleOnceV17(game);
+    addLog(`你于尘世中醒来，觉醒灵根：${game.rootName}。`, 'rare');
+    addLog('第二十五版已开启：化神及以上每次轮回固定 1 枚轮回印，化神后的突破也变得更难了。', 'muted');
+  }
+  autoEquipBest(false);
+  renderCombatPanel();
+  updateUI();
+  if (!gameTimer) gameTimer = setInterval(gameTick, 1000);
+}
+
+window.investBreakthroughMarksV25 = investBreakthroughMarksV25;
+window.clearBreakthroughMarksV25 = clearBreakthroughMarksV25;
+window.saveGame = saveGame;
+window.loadGame = loadGame;
+window.resetGame = resetGame;
+window.onload = initV25;
+window.addEventListener('beforeunload', () => {
+  if (game && Object.keys(game).length) {
+    game.lastSeen = Date.now();
+    localStorage.setItem(SAVE_KEY_V25, JSON.stringify(game));
+  }
+});
