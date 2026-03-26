@@ -1045,3 +1045,245 @@ body.theme-light .breakthrough-mark-box{
   border-color:rgba(209,123,22,.18);
   background:linear-gradient(180deg,rgba(255,245,228,.98),rgba(247,251,255,.98));
 }
+
+
+/* ===== v25 responsive font refinement ===== */
+html{
+  font-size:16px;
+}
+body{
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
+
+@media (max-width: 1680px){
+  html{ font-size:15.5px; }
+  .brand h1{ font-size:22px; }
+  .brand p{ font-size:11px; }
+  .chip strong{ font-size:13px; }
+  .chip span{ font-size:10px; }
+  .panel-title-row h2{ font-size:16px; }
+  .section-head h2{ font-size:20px; }
+  .section-head p{ font-size:12px; }
+  .hero-realm{ font-size:29px; }
+  .hero-stat strong{ font-size:16px; }
+  .hero-stat span{ font-size:11px; }
+  .summary-card h3,.panel-card h3,.explore-card h3,.hero-log-card h3{ font-size:15px; }
+  .tip-item,.info-card p,.note-line,.list-bullets,.empty-text,.route-box p,.skill-card p{ font-size:12px; }
+  .meta-chip,.pet-meta-chip,.progress-note,.info-pair,.rank,.slot,.bar-caption,.combat-name-row span{ font-size:11px; }
+  .nav-btn, .quick-grid button, .small-btn, .inline-btn, .move-btn, button{ font-size:12px; }
+}
+
+@media (max-width: 1440px){
+  html{ font-size:15px; }
+  .workspace{ grid-template-columns:210px 1fr 300px; gap:14px; }
+  .top-bar{ gap:12px; padding:14px 16px; }
+  .panel{ padding:14px; }
+  .brand-mark{ width:44px; height:44px; font-size:22px; }
+  .brand h1{ font-size:21px; }
+  .chip{ padding:9px 10px; }
+  .chip strong{ font-size:12px; }
+  .chip span{ font-size:10px; }
+  .section-head h2{ font-size:19px; }
+  .hero-realm{ font-size:27px; }
+  .badge,.tiny-tag,.aptitude-pill,.pet-badge,.sect-pill,.story-pill,.conflict-pill,.ending-pill,.origin-pill,.talent-pill,.set-pill,.secret-pill,.evo-star,.quality-badge,.upgrade-badge{ font-size:11px; }
+  .hero-stats{ gap:10px; }
+  .hero-stat{ padding:11px 12px; }
+  .hero-stat strong{ font-size:15px; }
+  .nav-grid,.quick-grid{ gap:8px; }
+  .nav-btn,.quick-grid button{ min-height:38px; padding:9px 8px; }
+  .move-btn{ min-height:38px; }
+  .info-card{ padding:12px; }
+  .tip-item,.info-card p,.note-line,.list-bullets,.empty-text{ font-size:12px; line-height:1.55; }
+  .meta-grid,.small-grid,.pet-meta-grid,.boss-progress-grid{ gap:7px; }
+}
+
+@media (max-width: 1280px){
+  html{ font-size:14.5px; }
+  .top-bar{ padding:14px; }
+  .brand h1{ font-size:20px; }
+  .brand p{ font-size:11px; }
+  .panel{ padding:13px; }
+  .panel-title-row h2{ font-size:15px; }
+  .section-head h2{ font-size:18px; }
+  .section-head p{ font-size:12px; }
+  .hero-realm{ font-size:25px; }
+  .hero-stat strong{ font-size:15px; }
+  .summary-card h3,.panel-card h3,.explore-card h3,.hero-log-card h3{ font-size:14px; }
+  .tip-item,.info-card p,.note-line,.list-bullets,.empty-text,.route-box p,.skill-card p{ font-size:11.5px; }
+  .meta-chip,.pet-meta-chip,.progress-note,.info-pair,.rank,.slot{ font-size:10.5px; }
+  .top-stats{ gap:8px; }
+  .chip{ padding:8px 9px; }
+  .chip strong{ font-size:12px; }
+  .nav-btn,.quick-grid button,.small-btn,.inline-btn,button{ font-size:11.5px; }
+  .hero-log-item,.log-item{ font-size:11px; }
+}
+
+@media (max-width: 1100px){
+  html{ font-size:14px; }
+  .workspace{ grid-template-columns:200px 1fr; gap:12px; }
+  .right-panel{ max-height:360px; }
+  .brand-mark{ width:40px; height:40px; font-size:20px; }
+  .brand h1{ font-size:18px; }
+  .section-head h2{ font-size:17px; }
+  .hero-realm{ font-size:23px; }
+  .hero-stats{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .hero-stat strong{ font-size:14px; }
+  .hero-stat span,.chip span,.tiny-tag,.badge{ font-size:10px; }
+  .chip strong{ font-size:11px; }
+  .nav-grid,.quick-grid,.cooldown-panel{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .combat-actions{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .move-pad{ gap:8px; }
+  .enemy-chip,.pet-meta-chip,.meta-chip,.progress-note{ font-size:10px; }
+}
+
+@media (max-width: 900px){
+  html{ font-size:13.5px; }
+  .top-bar{ padding:12px; gap:10px; }
+  .panel{ padding:12px; border-radius:18px; }
+  .brand{ gap:10px; }
+  .brand h1{ font-size:17px; }
+  .brand p{ font-size:10px; }
+  .section-head h2{ font-size:16px; }
+  .section-head p{ font-size:11px; }
+  .hero-realm{ font-size:22px; }
+  .summary-card h3,.panel-card h3,.explore-card h3,.hero-log-card h3{ font-size:13px; }
+  .tip-item,.info-card p,.note-line,.list-bullets,.empty-text,.route-box p,.skill-card p{ font-size:11px; }
+  .nav-btn,.quick-grid button,.small-btn,.inline-btn,button{ font-size:11px; }
+  .chip strong{ font-size:11px; }
+  .hero-log-item,.log-item{ font-size:10.5px; }
+}
+
+@media (max-width: 640px){
+  html{ font-size:13px; }
+  .top-stats{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .top-actions{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .brand-mark{ width:36px; height:36px; font-size:18px; }
+  .brand h1{ font-size:16px; }
+  .section-head h2{ font-size:15px; }
+  .hero-realm{ font-size:20px; }
+  .nav-grid,.quick-grid,.combat-actions,.cooldown-panel{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .hero-stats,.small-grid,.meta-grid,.pet-meta-grid,.boss-progress-grid,.info-pairs{ grid-template-columns:1fr; }
+  .nav-btn,.quick-grid button,.small-btn,.inline-btn,button{ min-height:36px; padding:8px 8px; }
+}
+
+
+
+/* ===== top bar medium-screen fix ===== */
+.app{
+  grid-template-rows:auto minmax(0,1fr);
+}
+
+.top-bar{
+  grid-template-areas:"brand stats actions";
+  grid-template-columns:minmax(240px,330px) minmax(0,1fr) auto;
+  min-height:92px;
+}
+.brand{grid-area:brand;min-width:0}
+.top-stats{grid-area:stats;min-width:0}
+.top-actions{
+  grid-area:actions;
+  min-width:0;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+
+@media (max-width: 1700px){
+  .top-bar{
+    grid-template-areas:
+      "brand actions"
+      "stats stats";
+    grid-template-columns:minmax(240px,320px) minmax(0,1fr);
+    align-items:start;
+    row-gap:10px;
+  }
+  .top-stats{
+    grid-template-columns:repeat(4,minmax(92px,1fr));
+  }
+  .top-actions{
+    justify-content:flex-end;
+  }
+}
+
+@media (max-width: 1500px){
+  .top-bar{
+    padding:12px 14px;
+    row-gap:10px;
+  }
+  .brand{align-self:center}
+  .top-actions{
+    gap:6px;
+  }
+  .top-actions button{
+    font-size:11px;
+    padding:9px 10px;
+    min-height:38px;
+  }
+  .top-stats{
+    gap:8px;
+  }
+  .chip{
+    padding:8px 9px;
+  }
+  .chip span{
+    font-size:10px;
+  }
+  .chip strong{
+    font-size:12px;
+  }
+}
+
+@media (max-width: 1320px){
+  .top-bar{
+    grid-template-areas:
+      "brand"
+      "actions"
+      "stats";
+    grid-template-columns:1fr;
+    align-items:stretch;
+  }
+  .top-actions{
+    justify-content:flex-start;
+  }
+  .top-actions button{
+    font-size:11px;
+    padding:8px 10px;
+    min-height:36px;
+  }
+  .top-stats{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+  }
+  .brand h1{
+    font-size:18px;
+  }
+  .brand p{
+    font-size:10px;
+  }
+}
+
+@media (max-width: 900px){
+  .top-bar{
+    grid-template-areas:
+      "brand"
+      "actions"
+      "stats";
+    grid-template-columns:1fr;
+  }
+  .top-stats{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .top-actions{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:8px;
+  }
+  .top-actions button{
+    width:100%;
+  }
+}
+
+@media (max-width: 640px){
+  .top-actions{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
