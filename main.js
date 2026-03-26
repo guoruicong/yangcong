@@ -5778,377 +5778,516 @@ window.addEventListener('beforeunload', () => {
 });
 
 
-/* ===== 第二十三版：数值审查 / 多怪遭遇 / 灵宠血条参战 ===== */
+/* ===== V23 integrated patch: 多怪遭遇 + 灵宠血条共战 + 平衡修正 ===== */
 const SAVE_KEY_V23 = 'xiuxian_v23_save';
 
 function ensureV23State() {
   ensureV22State();
-  battleState.enemies = battleState.enemies || [];
-  battleState.currentEnemyIndex = battleState.currentEnemyIndex || 0;
-  if (battleState.petUnit === undefined) battleState.petUnit = null;
+  if (!battleState.enemies) battleState.enemies = [];
+  if (!Number.isFinite(battleState.petHp)) battleState.petHp = 0;
+  if (!Number.isFinite(battleState.petMaxHp)) battleState.petMaxHp = 0;
+  if (typeof battleState.petAlive !== 'boolean') battleState.petAlive = false;
   game.version = 23;
 }
 
-function getEncounterCountV23(mapId, elite = false, bossRoom = false) {
-  if (elite || bossRoom) return 1;
-  const rec = Number(MAPS[mapId]?.rec || 0);
-  const r = Math.random();
-  if (rec < 5) {
-    if (r < 0.55) return 1;
-    if (r < 0.84) return 2;
-    if (r < 0.96) return 3;
-    if (r < 0.995) return 4;
-    return 5;
+function getCurrentEnemyV23() {
+  const alive = (battleState.enemies || []).filter((e) => e.currentHp > 0);
+  return alive[0] || null;
+}
+function syncCurrentEnemyV23() {
+  const e = getCurrentEnemyV23();
+  battleState.enemy = e;
+  battleState.enemyHp = e ? e.currentHp : 0;
+  return e;
+}
+function commitCurrentEnemyV23() {
+  if (battleState.enemy) {
+    battleState.enemy.currentHp = Math.max(0, battleState.enemyHp);
   }
-  if (rec < 10) {
-    if (r < 0.36) return 1;
-    if (r < 0.68) return 2;
-    if (r < 0.88) return 3;
-    if (r < 0.97) return 4;
-    return 5;
-  }
-  if (rec < 16) {
-    if (r < 0.20) return 1;
-    if (r < 0.50) return 2;
-    if (r < 0.78) return 3;
-    if (r < 0.92) return 4;
-    return 5;
-  }
-  if (r < 0.12) return 1;
-  if (r < 0.34) return 2;
-  if (r < 0.62) return 3;
-  if (r < 0.86) return 4;
-  return 5;
+}
+function livingEnemyCountV23() {
+  return (battleState.enemies || []).filter((e) => e.currentHp > 0).length;
+}
+function allEnemiesDeadV23() {
+  return livingEnemyCountV23() === 0;
 }
 
-function getEncounterRewardMultiplierV23(count) {
-  return {1: 1, 2: 0.72, 3: 0.58, 4: 0.49, 5: 0.43}[count] || 0.43;
-}
-
-function buildEncounterGroupV23(primaryEnemy, mapId) {
-  const count = getEncounterCountV23(mapId, !!primaryEnemy.isElite, !!primaryEnemy.isBossRoom);
-  const group = [];
-  for (let i = 0; i < count; i++) {
-    let enemy = i === 0 ? JSON.parse(JSON.stringify(primaryEnemy)) : JSON.parse(JSON.stringify(randomMonsterOnMap(mapId, false)));
-    if (i > 0) {
-      enemy.hp = Math.floor(enemy.hp * (0.84 + Math.random() * 0.08));
-      enemy.atk = Math.floor(enemy.atk * (0.88 + Math.random() * 0.08));
-      enemy.def = Math.floor(enemy.def * (0.90 + Math.random() * 0.06));
-      enemy.exp = Math.max(1, Math.floor(enemy.exp * 0.82));
-      enemy.stone = Math.max(1, Math.floor(enemy.stone * 0.85));
-    }
-    enemy.uid = `${enemy.id || 'mob'}_${Date.now()}_${Math.random().toString(36).slice(2,7)}_${i}`;
-    enemy.maxHp = enemy.hp;
-    enemy.currentHp = enemy.hp;
-    group.push(enemy);
-  }
-  return group;
-}
-
-function getPetBattleStatsV23() {
-  const pet = getActivePet();
+function getPetBattleStatsV23(id = game.activePet) {
+  const pet = id ? PET_DEFS[id] : null;
   if (!pet) return null;
-  const bond = getPetBond(pet.id);
-  const evo = getPetEvolution(pet.id);
-  const mult = getPetCombatMultiplier(pet.id);
+  const bond = getPetBond(id);
+  const mult = getPetCombatMultiplier(id);
+  const evo = getPetEvolution(id);
   return {
-    id: pet.id,
+    id,
     name: pet.name,
-    atk: Math.max(6, Math.floor((pet.atk + bond * 1.6 + evo * 4) * mult)),
-    def: Math.max(2, Math.floor((pet.def + bond * 1.1 + evo * 3) * mult)),
-    maxHp: Math.max(40, Math.floor((pet.hp * 2.2 + bond * 12 + evo * 38) * mult)),
-    hp: Math.max(40, Math.floor((pet.hp * 2.2 + bond * 12 + evo * 38) * mult)),
-    crit: clamp((pet.crit || 0) + evo * 0.02, 0.02, 0.55)
+    atk: Math.max(4, Math.floor((pet.atk * 3 + bond * 2 + game.realmIndex * 1.6) * mult + evo * 6)),
+    def: Math.max(2, Math.floor((pet.def * 2.5 + Math.floor(bond * 1.5) + game.realmIndex * 1.1) * mult + evo * 4)),
+    maxHp: Math.max(30, Math.floor((pet.hp * 6 + bond * 10 + game.realmIndex * 12) * mult + evo * 45))
   };
 }
+function isPetAliveV23() {
+  return !!game.activePet && battleState.petAlive && battleState.petHp > 0;
+}
 
-function syncEnemyGroupStateV23() {
-  if (battleState.enemy) battleState.enemy.currentHp = battleState.enemyHp;
-  battleState.enemies = (battleState.enemies || []).filter((m) => (m.currentHp || 0) > 0);
-  if (!battleState.enemies.length) {
-    battleState.enemy = null;
-    battleState.enemyHp = 0;
-    battleState.currentEnemyIndex = 0;
-    return;
+function rollEncounterCountV23(mapId) {
+  const rec = Number(MAPS[mapId]?.rec || 0);
+  const r = Math.random();
+  if (rec <= 4) {
+    if (r < 0.50) return 1;
+    if (r < 0.82) return 2;
+    if (r < 0.95) return 3;
+    return 4;
   }
-  if (!battleState.enemy || battleState.enemy.currentHp <= 0 || !battleState.enemies.some((m) => m.uid === battleState.enemy.uid)) {
-    battleState.currentEnemyIndex = 0;
-    battleState.enemy = battleState.enemies[0];
-    battleState.enemyHp = battleState.enemy.currentHp;
-  } else {
-    battleState.currentEnemyIndex = battleState.enemies.findIndex((m) => m.uid === battleState.enemy.uid);
-    battleState.enemyHp = battleState.enemy.currentHp;
+  if (rec <= 10) {
+    if (r < 0.34) return 1;
+    if (r < 0.62) return 2;
+    if (r < 0.84) return 3;
+    if (r < 0.95) return 4;
+    return 5;
   }
+  if (rec <= 16) {
+    if (r < 0.22) return 1;
+    if (r < 0.46) return 2;
+    if (r < 0.72) return 3;
+    if (r < 0.90) return 4;
+    return 5;
+  }
+  if (r < 0.14) return 1;
+  if (r < 0.32) return 2;
+  if (r < 0.58) return 3;
+  if (r < 0.82) return 4;
+  return 5;
+}
+function scaleEnemyForPackV23(enemy, count) {
+  const hpMul = ({1:1,2:0.88,3:0.79,4:0.73,5:0.68})[count] || 1;
+  const atkMul = ({1:1,2:0.95,3:0.90,4:0.86,5:0.82})[count] || 1;
+  const defMul = ({1:1,2:0.97,3:0.93,4:0.90,5:0.88})[count] || 1;
+  enemy.hp = Math.max(1, Math.floor(enemy.hp * hpMul));
+  enemy.atk = Math.max(1, Math.floor(enemy.atk * atkMul));
+  enemy.def = Math.max(0, Math.floor(enemy.def * defMul));
+  return enemy;
+}
+function makeEncounterGroupV23(firstEnemy) {
+  const mapId = firstEnemy.sourceMapId || game.currentMapId;
+  const count = rollEncounterCountV23(mapId);
+  const enemies = [JSON.parse(JSON.stringify(firstEnemy))];
+  for (let i = 1; i < count; i += 1) {
+    const extra = randomMonsterOnMap(mapId, false);
+    extra.sourceMapId = mapId;
+    enemies.push(JSON.parse(JSON.stringify(extra)));
+  }
+  return enemies.map((e) => {
+    const scaled = scaleEnemyForPackV23(e, count);
+    scaled.baseHp = scaled.hp;
+    scaled.currentHp = scaled.hp;
+    return scaled;
+  });
 }
 
 const startBattleV22 = startBattle;
 startBattle = function(monsterDef) {
+  ensureV23State();
   if (battleState.active) {
-    addLog('你已经在打架了，不能一边挨打一边再点一群。', 'warn');
+    addLog('你已经在战斗里了，不能一边挨打一边再开新团。', 'warn');
     return;
   }
-  ensureV23State();
-  const mapId = monsterDef.sourceMapId || game.currentMapId;
-  const group = buildEncounterGroupV23(monsterDef, mapId);
-  const stats = calcPlayerStats();
-  battleState.active = true;
-  battleState.enemies = group;
-  battleState.currentEnemyIndex = 0;
-  battleState.enemy = battleState.enemies[0];
-  battleState.enemyHp = battleState.enemy.currentHp;
-  battleState.playerHp = clamp(game.life || stats.maxHp, 1, stats.maxHp);
-  battleState.petUnit = getPetBattleStatsV23();
-  battleState.feed = [group.length > 1 ? `你遭遇了 ${group.length} 只敌人！当前顶在前面的是【${battleState.enemy.name}】。` : `你遭遇了【${battleState.enemy.name}】！`];
-  battleState.shield = 0;
-  battleState.petLootBonus = 0;
-  battleState.petSkillCd = 0;
-  resetSkillCooldowns();
-  document.getElementById('battleStateText').textContent = '战斗中';
-  addJournalMonster(monsterDef.name.replace('精英·',''));
-  renderCombatPanel();
-  addLog(group.length > 1 ? `你遭遇了一组敌人，共 ${group.length} 只。` : `你遭遇了【${monsterDef.name}】。`, monsterDef.isElite ? 'rare' : 'danger');
 
-  const pet = getActivePet();
-  if (battleState.petUnit && pet) {
+  const stats = calcPlayerStats();
+  const petStats = getPetBattleStatsV23();
+  const isSingle = !!monsterDef.isElite || !!monsterDef.isBossRoom;
+  let enemies = [];
+
+  if (monsterDef._encounterGroup && Array.isArray(monsterDef.enemies)) {
+    enemies = monsterDef.enemies.map((e) => ({ ...e, baseHp: e.hp, currentHp: e.hp }));
+  } else if (!isSingle) {
+    const first = JSON.parse(JSON.stringify(monsterDef));
+    first.sourceMapId = first.sourceMapId || game.currentMapId;
+    enemies = makeEncounterGroupV23(first);
+  } else {
+    const single = JSON.parse(JSON.stringify(monsterDef));
+    single.baseHp = single.hp;
+    single.currentHp = single.hp;
+    single.sourceMapId = single.sourceMapId || game.currentMapId;
+    enemies = [single];
+  }
+
+  battleState.active = true;
+  battleState.enemies = enemies;
+  battleState.playerHp = clamp(game.life || stats.maxHp, 1, stats.maxHp);
+  battleState.shield = 0;
+  battleState.feed = [];
+  battleState.petLootBonus = 0;
+  resetSkillCooldowns();
+  battleState.petSkillCd = 0;
+  if (petStats) {
+    battleState.petMaxHp = petStats.maxHp;
+    battleState.petHp = petStats.maxHp;
+    battleState.petAlive = true;
+  } else {
+    battleState.petMaxHp = 0;
+    battleState.petHp = 0;
+    battleState.petAlive = false;
+  }
+
+  syncCurrentEnemyV23();
+
+  document.getElementById('battleStateText').textContent = '战斗中';
+  const names = enemies.map((e) => e.name).join('、');
+  addJournalMonster(enemies[0].name.replace('精英·',''));
+  addLog(`你遭遇了 ${enemies.length} 只敌人：${names}。`, enemies.some((e) => e.isElite) ? 'rare' : 'danger');
+  addCombatFeed(`你遭遇了 ${enemies.length} 只敌人：${names}。`);
+
+  if (isPetAliveV23()) {
+    const pet = getActivePet();
     if (pet.id === 'hawk') {
-      const opening = Math.max(1, Math.floor((8 + calcPlayerStats().atk * 0.2) * getPetCombatMultiplier('hawk')));
+      const opening = Math.max(1, Math.floor((8 + stats.atk * 0.18) * getPetCombatMultiplier('hawk')));
       battleState.enemyHp = Math.max(0, battleState.enemyHp - opening);
-      battleState.enemy.currentHp = battleState.enemyHp;
-      addCombatFeed(`【雷纹隼】先手俯冲，开场就打了 ${opening} 点伤害。`);
-      if (battleState.enemyHp <= 0) {
-        handleBattleWin();
-        return;
-      }
+      commitCurrentEnemyV23();
+      addCombatFeed(`【雷纹隼】先手俯冲，开场打掉当前目标 ${opening} 点生命。`);
     }
     if (pet.id === 'turtle') {
-      const shield = Math.floor((16 + calcPlayerStats().def * 1.2) * getPetCombatMultiplier('turtle'));
-      battleState.shield = (battleState.shield || 0) + shield;
+      const shield = Math.floor((16 + stats.def * 1.2) * getPetCombatMultiplier('turtle'));
+      battleState.shield += shield;
       addCombatFeed(`【玄甲龟】开场撑起护甲，为你提供 ${shield} 点护盾。`);
     }
   }
+
   renderCombatPanel();
   if (battleState.auto) startBattleLoop();
 };
 
-const battleRoundV22 = battleRound;
-battleRound = function() {
-  const p = calcPlayerStats();
-  const e = battleState.enemy;
-  if (!e) return;
-  let pDmg = Math.max(1, Math.floor(p.atk - e.def * 0.55 + Math.random() * 7));
-  let crit = false;
-  if (Math.random() < p.crit) {
-    pDmg = Math.floor(pDmg * 1.6);
-    crit = true;
-  }
-  battleState.enemyHp = Math.max(0, battleState.enemyHp - pDmg);
-  battleState.enemy.currentHp = battleState.enemyHp;
-  addCombatFeed(`你对【${e.name}】造成 ${pDmg} 点伤害${crit ? '（暴击）' : ''}。`);
+function petBasicAttackV23() {
+  if (!isPetAliveV23()) return;
+  const target = syncCurrentEnemyV23();
+  const petStats = getPetBattleStatsV23();
+  if (!target || !petStats) return;
+  const dmg = Math.max(1, Math.floor(petStats.atk - target.def * 0.28 + Math.random() * 5));
+  battleState.enemyHp = Math.max(0, battleState.enemyHp - dmg);
+  commitCurrentEnemyV23();
+  addCombatFeed(`【${petStats.name}】协同攻击，对【${target.name}】造成 ${dmg} 点伤害。`);
   animateHit('monsterHpBar');
-  if (battleState.enemyHp <= 0) {
+}
+
+const castPetSkillV22 = castPetSkill;
+castPetSkill = function(fromAuto = false) {
+  ensureV23State();
+  if (!battleState.active || !livingEnemyCountV23()) {
+    if (!fromAuto) addLog('当前没有可打的敌人，灵宠也暂时没有发挥空间。', 'warn');
+    return;
+  }
+  if (!isPetAliveV23()) {
+    if (!fromAuto) addLog('灵宠已经倒下，这场战斗里它只能先歇着。', 'warn');
+    return;
+  }
+  syncCurrentEnemyV23();
+  const beforeTarget = getCurrentEnemyV23();
+  const pet = getActivePet();
+  const skill = getPetSkillDef(pet.id);
+  if (!skill) return;
+  if (battleState.petSkillCd > 0) {
+    if (!fromAuto) addLog(`【${skill.name}】还在冷却：${battleState.petSkillCd} 回合。`, 'warn');
+    return;
+  }
+  const msg = skill.use();
+  commitCurrentEnemyV23();
+  battleState.petSkillCd = Math.max(1, skill.cd - Math.floor(getPetEvolution(pet.id) / 2));
+  game.petSkillUse[pet.id] = getPetSkillUses(pet.id) + 1;
+  addCombatFeed(msg);
+  animateHit('monsterHpBar');
+
+  if (allEnemiesDeadV23()) {
     handleBattleWin();
     return;
   }
   enemyActionIfAlive();
 };
 
-function petBasicAttackV23() {
-  if (!battleState.petUnit || battleState.petUnit.hp <= 0 || !battleState.enemy || battleState.enemyHp <= 0) return false;
-  let dmg = Math.max(1, Math.floor(battleState.petUnit.atk - battleState.enemy.def * 0.32 + Math.random() * 5));
+const autoBattleActionV22 = autoBattleAction;
+autoBattleAction = function() {
+  if (!battleState.active) return;
+  if (battleState.playerHp < calcPlayerStats().maxHp * 0.45 && getInventoryAmount('healPill') > 0) {
+    usePotion('healPill', true);
+    enemyActionIfAlive();
+    return;
+  }
+  if (isPetAliveV23() && battleState.petSkillCd === 0) {
+    const pet = getActivePet();
+    if (pet.id === 'turtle' && battleState.playerHp < calcPlayerStats().maxHp * 0.68) {
+      castPetSkill(true);
+      return;
+    }
+    if (pet.id !== 'turtle') {
+      castPetSkill(true);
+      return;
+    }
+  }
+  if (battleState.skillCd.thunder === 0) {
+    castSkill('thunder', true);
+  } else if (battleState.skillCd.slash === 0) {
+    castSkill('slash', true);
+  } else {
+    battleRound();
+  }
+};
+
+battleRound = function() {
+  if (!battleState.active || !livingEnemyCountV23()) return;
+  const p = calcPlayerStats();
+  const e = syncCurrentEnemyV23();
+  if (!e) return;
+  let pDmg = Math.max(1, Math.floor(p.atk - e.def * 0.55 + Math.random() * 8));
   let crit = false;
-  if (Math.random() < battleState.petUnit.crit) {
-    dmg = Math.floor(dmg * 1.45);
+  if (Math.random() < p.crit) {
+    pDmg = Math.floor(pDmg * 1.65);
     crit = true;
   }
-  battleState.enemyHp = Math.max(0, battleState.enemyHp - dmg);
-  battleState.enemy.currentHp = battleState.enemyHp;
-  addCombatFeed(`【${battleState.petUnit.name}】补上一击，造成 ${dmg} 点伤害${crit ? '（暴击）' : ''}。`);
+  battleState.enemyHp = Math.max(0, battleState.enemyHp - pDmg);
+  commitCurrentEnemyV23();
+  addCombatFeed(`你对【${e.name}】造成 ${pDmg} 点伤害${crit ? '（暴击）' : ''}。`);
   animateHit('monsterHpBar');
-  if (battleState.enemyHp <= 0) {
+
+  if (battleState.enemyHp <= 0 && allEnemiesDeadV23()) {
     handleBattleWin();
-    return true;
+    return;
   }
-  return false;
-}
+  if (battleState.enemyHp > 0 || livingEnemyCountV23() > 0) {
+    petBasicAttackV23();
+  }
+  if (allEnemiesDeadV23()) {
+    handleBattleWin();
+    return;
+  }
+  enemyActionIfAlive();
+};
 
-const enemyActionIfAliveV22 = enemyActionIfAlive;
+const castSkillV22 = castSkill;
+castSkill = function(id, fromAuto = false) {
+  if (!battleState.active || !livingEnemyCountV23()) return;
+  const skill = SKILLS[id];
+  if (!skill) return;
+  if (battleState.skillCd[id] > 0) {
+    if (!fromAuto) addLog(`【${skill.name}】还在冷却：${battleState.skillCd[id]} 回合。`, 'warn');
+    return;
+  }
+  syncCurrentEnemyV23();
+  const stats = calcPlayerStats();
+  const msg = skill.use(battleState, stats);
+  commitCurrentEnemyV23();
+  addJournalSkill(skill.name);
+  battleState.skillCd[id] = skill.cd;
+  addCombatFeed(msg);
+  animateHit('monsterHpBar');
+  if (allEnemiesDeadV23()) {
+    handleBattleWin();
+    return;
+  }
+  enemyActionIfAlive();
+};
+
 enemyActionIfAlive = function() {
-  syncEnemyGroupStateV23();
-  if (!battleState.enemy) return;
-
-  if (petBasicAttackV23()) return;
-
+  const enemies = (battleState.enemies || []).filter((e) => e.currentHp > 0);
+  if (!enemies.length) return;
   const p = calcPlayerStats();
-  const enemies = (battleState.enemies || []).slice();
+  const petStats = getPetBattleStatsV23();
+
   for (const e of enemies) {
-    if (e.currentHp <= 0) continue;
-    let eDmg = Math.max(1, Math.floor(e.atk - p.def * 0.42 + Math.random() * 6));
-    const petAlive = battleState.petUnit && battleState.petUnit.hp > 0;
-    const targetPet = petAlive && Math.random() < 0.34;
+    let hitPet = isPetAliveV23() && Math.random() < 0.28;
+    if (!isPetAliveV23()) hitPet = false;
 
-    if (targetPet) {
-      let petDmg = Math.max(1, Math.floor(e.atk - battleState.petUnit.def * 0.38 + Math.random() * 5));
-      battleState.petUnit.hp = Math.max(0, battleState.petUnit.hp - petDmg);
-      addCombatFeed(`【${e.name}】扑向灵宠，打了【${battleState.petUnit.name}】${petDmg} 点。`);
-      animateHit('petHpBar');
-      if (battleState.petUnit.hp <= 0) {
-        addCombatFeed(`【${battleState.petUnit.name}】倒下了，后面的回合你得自己扛。`);
+    if (hitPet && petStats) {
+      let eDmg = Math.max(1, Math.floor(e.atk - petStats.def * 0.36 + Math.random() * 6));
+      battleState.petHp = Math.max(0, battleState.petHp - eDmg);
+      addCombatFeed(`【${e.name}】转头攻击灵宠，打了【${petStats.name}】${eDmg} 点。`);
+      if (battleState.petHp <= 0 && battleState.petAlive) {
+        battleState.petAlive = false;
+        addCombatFeed(`【${petStats.name}】倒下了，这场战斗里它先退到后面喘口气。`);
+        addLog(`灵宠【${petStats.name}】在战斗中倒下，但自动战斗会继续执行。`, 'warn');
       }
-      continue;
+    } else {
+      let eDmg = Math.max(1, Math.floor(e.atk - p.def * 0.45 + Math.random() * 7));
+      if (battleState.shield > 0) {
+        const blocked = Math.min(battleState.shield, eDmg);
+        eDmg -= blocked;
+        battleState.shield -= blocked;
+        addCombatFeed(`护盾替你挡掉 ${blocked} 点伤害。`);
+      }
+      battleState.playerHp = Math.max(0, battleState.playerHp - eDmg);
+      addCombatFeed(`【${e.name}】反击，打了你 ${eDmg} 点。`);
     }
 
-    if (battleState.shield > 0) {
-      const blocked = Math.min(battleState.shield, eDmg);
-      eDmg -= blocked;
-      battleState.shield -= blocked;
-      if (blocked > 0) addCombatFeed(`护盾替你挡掉 ${blocked} 点伤害。`);
-    }
-    battleState.playerHp = Math.max(0, battleState.playerHp - eDmg);
-    addCombatFeed(`【${e.name}】打了你 ${eDmg} 点。`);
-    animateHit('playerHpBar');
     if (battleState.playerHp <= 0) {
-      tickSkillCd();
       handleBattleLose();
       return;
     }
   }
+
   tickSkillCd();
+  animateHit('playerHpBar');
   renderCombatPanel();
-};
-
-const castPetSkillV22 = castPetSkill;
-castPetSkill = function(fromAuto = false) {
-  if (!battleState.petUnit || battleState.petUnit.hp <= 0) {
-    if (!fromAuto) addLog('你的灵宠现在不在战斗状态，或者已经倒了。', 'warn');
-    return;
-  }
-  castPetSkillV22(fromAuto);
-};
-
-const autoBattleActionV22 = autoBattleAction;
-autoBattleAction = function() {
-  if (battleState.petUnit && battleState.petUnit.hp <= 0) {
-    autoBattleActionV22();
-    return;
-  }
-  autoBattleActionV22();
 };
 
 const handleBattleWinV22 = handleBattleWin;
 handleBattleWin = function() {
   ensureV23State();
-  const e = battleState.enemy ? JSON.parse(JSON.stringify(battleState.enemy)) : null;
-  if (!e) return;
-  const groupCount = Math.max(1, battleState.enemies?.length || 1);
-  const rewardMult = getEncounterRewardMultiplierV23(groupCount);
-  const stats = calcPlayerStats();
-  const exp = Math.max(1, Math.floor(e.exp * rewardMult));
-  const stone = Math.max(1, Math.floor((e.stone + Math.floor(Math.random() * 6)) * (0.82 + rewardMult * 0.22)));
-  gainExp(exp, '打怪');
-  game.stone += stone;
-  game.stats.killCount += 1;
-  game.stats.battlesWon += 1;
-  if (e.isElite) game.stats.eliteKills += 1;
-  addCombatFeed(`你击败了【${e.name}】！修为 +${exp}，灵石 +${stone}。`);
-  addLog(`你击败了【${e.name}】，修为 +${exp}，灵石 +${stone}。`, e.isElite ? 'rare' : 'good');
+  const enemies = (battleState.enemies || []).map((e) => ({ ...e }));
+  const count = enemies.length || 1;
+  const expMul = ({1:1,2:0.92,3:0.84,4:0.78,5:0.73})[count] || 1;
+  const stoneMul = ({1:1,2:0.95,3:0.90,4:0.86,5:0.82})[count] || 1;
 
-  if (Math.random() < (e.dropChance || 0.55)) {
-    const itemId = randomFrom(e.drops);
-    const amount = 1 + (Math.random() < 0.18 ? 1 : 0);
-    addItem(itemId, amount);
-    addCombatFeed(`掉落：${ITEM_DEFS[itemId].name} ×${amount}`);
-    addLog(`掉落：${ITEM_DEFS[itemId].name} ×${amount}。`, 'rare');
-  }
-  if (Math.random() < Math.min(0.3, (e.gearChance || 0.05)) && e.gearPool?.length) {
-    const gear = randomFrom(e.gearPool);
-    addEquipment(gear);
-    addCombatFeed(`你捡到装备【${EQUIPMENT_DEFS[gear].name}】！`);
-    addLog(`你捡到装备【${EQUIPMENT_DEFS[gear].name}】。`, 'rare');
+  let totalExp = 0;
+  let totalStone = 0;
+  let elites = 0;
+  let extraItems = [];
+
+  enemies.forEach((e) => {
+    totalExp += Math.floor((e.exp || 0) * expMul);
+    totalStone += Math.floor(((e.stone || 0) + Math.floor(Math.random() * 5)) * stoneMul);
+    game.stats.killCount += 1;
+    game.stats.battlesWon += 1;
+    if (e.isElite) {
+      elites += 1;
+      game.stats.eliteKills += 1;
+    }
+
+    if (Math.random() < (e.dropChance || 0.55) * (count > 1 ? 0.88 : 1)) {
+      const itemId = randomFrom(e.drops || ['spiritHerb']);
+      const amount = 1 + (Math.random() < 0.20 ? 1 : 0);
+      addItem(itemId, amount);
+      extraItems.push(`${ITEM_DEFS[itemId].name} ×${amount}`);
+    }
+    if (Math.random() < (e.gearChance || 0.05) * (count > 1 ? 0.75 : 1) && e.gearPool?.length) {
+      const gear = randomFrom(e.gearPool);
+      addEquipment(gear);
+      extraItems.push(`装备【${EQUIPMENT_DEFS[gear].name}】`);
+    }
+
+    if (Math.random() < (e.isElite ? 0.24 : 0.08)) {
+      addItem('petCrystal', 1);
+      extraItems.push('灵契晶 ×1');
+    }
+
+    if (e.isElite && !e.isBossRoom && BOSS_TRIGGER_RULES_V22[e.sourceMapId]) {
+      const progress = getBossTriggerProgressV22(e.sourceMapId);
+      progress.eliteKills += 1;
+      refreshBossRoomUnlockV22(e.sourceMapId, false);
+    }
+
+    if (e.isBossRoom && e.sourceMapId) {
+      const mapId = e.sourceMapId;
+      game.bossRooms[mapId].cleared = true;
+      game.bossRooms[mapId].wins += 1;
+      game.stats.bossRoomWins += 1;
+      addItem('secretKey', 1);
+      if (e.unlockHiddenMapId) unlockHiddenMapV16(e.unlockHiddenMapId);
+    }
+  });
+
+  gainExp(totalExp, '打怪');
+  game.stone += totalStone;
+
+  const lootBonus = battleState.petLootBonus || 0;
+  if (lootBonus > 0 && game.activePet) {
+    const extraStone = Math.max(1, Math.floor(lootBonus * 80 * (count * 0.8)));
+    game.stone += extraStone;
+    addLog(`【${PET_DEFS[game.activePet].name}】顺手额外搜刮到 ${extraStone} 灵石。`, 'good');
+    if (enemies[0] && Math.random() < Math.min(0.5, lootBonus + 0.08)) {
+      const pool = enemies.flatMap((e) => e.drops || []);
+      const itemId = randomFrom(pool.length ? pool : ['spiritHerb']);
+      addItem(itemId, 1);
+      extraItems.push(`${ITEM_DEFS[itemId].name} ×1（灵宠带回）`);
+    }
   }
 
-  // remove defeated current enemy and move on
-  battleState.enemies = (battleState.enemies || []).filter((m) => m.uid !== e.uid);
-  if (battleState.enemies.length > 0) {
-    battleState.enemy = battleState.enemies[0];
-    battleState.enemyHp = battleState.enemy.currentHp;
-    addCombatFeed(`新的敌人顶了上来：【${battleState.enemy.name}】。场上还剩 ${battleState.enemies.length} 只。`);
-    renderCombatPanel();
-    return;
+  addCombatFeed(`你击败了这波敌群！修为 +${totalExp}，灵石 +${totalStone}。`);
+  addLog(`你击败了 ${count} 只敌人，修为 +${totalExp}，灵石 +${totalStone}。`, elites > 0 ? 'rare' : 'good');
+  if (extraItems.length) {
+    addCombatFeed(`额外收获：${extraItems.join('、')}`);
+    addLog(`额外收获：${extraItems.join('、')}。`, 'rare');
   }
+
   stopBattle('win');
 };
 
-const runAwayV22 = runAway;
-runAway = function() {
-  if (!battleState.active) return;
-  if ((battleState.enemies || []).length >= 4) {
-    if (Math.random() < 0.52) {
-      addCombatFeed('你从乱战里硬挤了出来。虽然狼狈，但总算没被包成饺子。');
-      addLog('你从群怪遭遇中撤离。', 'muted');
-      stopBattle('escape');
-    } else {
-      addCombatFeed('你想跑，但怪太多了，撤退失败。');
-      battleState.playerHp = Math.max(1, battleState.playerHp - 18);
-      animateHit('playerHpBar');
-      renderCombatPanel();
-    }
-    return;
-  }
-  runAwayV22();
+const handleBattleLoseV22 = handleBattleLose;
+handleBattleLose = function() {
+  battleState.petAlive = false;
+  handleBattleLoseV22();
 };
 
 const stopBattleV22 = stopBattle;
 stopBattle = function(result = 'end') {
   battleState.enemies = [];
-  battleState.currentEnemyIndex = 0;
-  battleState.petUnit = null;
+  battleState.petHp = 0;
+  battleState.petMaxHp = 0;
+  battleState.petAlive = false;
   stopBattleV22(result);
 };
 
 const renderCombatPanelV22 = renderCombatPanel;
 renderCombatPanel = function() {
-  renderCombatPanelV22();
   ensureV23State();
-  const groupPanel = document.getElementById('enemyGroupPanel');
-  const petName = document.getElementById('petBattleName');
-  const petStats = document.getElementById('petBattleStats');
-  const petBar = document.getElementById('petHpBar');
-  const petText = document.getElementById('petHpText');
-  const petSkillBtn = document.getElementById('petSkillText');
+  syncCurrentEnemyV23();
+  renderCombatPanelV22();
 
-  if (battleState.petUnit) {
-    petName.textContent = battleState.petUnit.name;
-    petStats.textContent = `攻 ${battleState.petUnit.atk} / 防 ${battleState.petUnit.def}`;
-    petBar.style.width = `${clamp((battleState.petUnit.hp / battleState.petUnit.maxHp) * 100, 0, 100)}%`;
-    petText.textContent = `${Math.floor(battleState.petUnit.hp)} / ${battleState.petUnit.maxHp}`;
-  } else {
-    petName.textContent = '灵宠未参战';
-    petStats.textContent = getActivePet() ? '等待进入战斗' : '当前未跟随';
-    petBar.style.width = '0%';
-    petText.textContent = '0 / 0';
-  }
-
-  if (groupPanel) {
-    const enemies = battleState.active ? (battleState.enemies || []) : [];
-    groupPanel.innerHTML = enemies.length ? enemies.map((e, idx) => `
-      <div class="enemy-mini-card">
-        <div class="enemy-mini-row">
-          <strong>${e.name}</strong>
-          <span class="${battleState.enemy && e.uid === battleState.enemy.uid ? 'focus-tag' : ''}">${battleState.enemy && e.uid === battleState.enemy.uid ? '当前目标' : '待机'}</span>
-        </div>
-        <div class="bar-track hp enemy small"><div class="bar-fill enemy-fill" style="width:${clamp((e.currentHp / e.maxHp) * 100, 0, 100)}%"></div></div>
-        <div class="bar-caption small">${Math.floor(e.currentHp)} / ${e.maxHp}</div>
-      </div>
-    `).join('') : `<div class="empty-text">当前没有敌群。下一次遭遇可能就不是一个了。</div>`;
-  }
-
-  if (petSkillBtn) {
-    if (battleState.petUnit && battleState.petUnit.hp > 0) {
-      const pet = getActivePet();
-      const skill = pet ? getPetSkillDef(pet.id) : null;
-      petSkillBtn.textContent = skill ? `灵宠技：${skill.name}${battleState.petSkillCd > 0 ? `(${battleState.petSkillCd})` : ''}` : '灵宠技：暂无';
+  const petCard = document.getElementById('petCombatCard');
+  const pet = getActivePet();
+  const petStats = getPetBattleStatsV23();
+  if (petCard && pet && petStats && battleState.active) {
+    petCard.style.display = '';
+    document.getElementById('petBattleName').textContent = petStats.name;
+    document.getElementById('petBattleStats').textContent = `攻 ${petStats.atk} / 防 ${petStats.def}`;
+    document.getElementById('petHpBar').style.width = `${Math.max(0, Math.min(100, (battleState.petHp / Math.max(1, battleState.petMaxHp)) * 100))}%`;
+    document.getElementById('petHpText').textContent = `${Math.max(0, Math.floor(battleState.petHp))} / ${battleState.petMaxHp}${battleState.petAlive ? '' : ' · 已倒下'}`;
+  } else if (petCard) {
+    if (pet) {
+      petCard.style.display = '';
+      document.getElementById('petBattleName').textContent = PET_DEFS[pet.id].name;
+      document.getElementById('petBattleStats').textContent = '待命';
+      document.getElementById('petHpBar').style.width = '0%';
+      document.getElementById('petHpText').textContent = '未进入战斗';
     } else {
-      petSkillBtn.textContent = '灵宠技：未参战';
+      petCard.style.display = '';
+      document.getElementById('petBattleName').textContent = '灵宠未出战';
+      document.getElementById('petBattleStats').textContent = '待命';
+      document.getElementById('petHpBar').style.width = '0%';
+      document.getElementById('petHpText').textContent = '当前没有跟随灵宠';
+    }
+  }
+
+  const alive = livingEnemyCountV23();
+  const total = (battleState.enemies || []).length;
+  const current = getCurrentEnemyV23();
+  if (battleState.active && current) {
+    document.getElementById('monsterBattleName').textContent = `${current.name}${total > 1 ? `（剩余 ${alive}/${total}）` : ''}`;
+    document.getElementById('monsterBattleStats').textContent = `攻 ${current.atk} / 防 ${current.def}`;
+    document.getElementById('monsterHpBar').style.width = `${Math.max(0, Math.min(100, (current.currentHp / current.baseHp) * 100))}%`;
+    document.getElementById('monsterHpText').textContent = `${Math.floor(current.currentHp)} / ${current.baseHp}`;
+  }
+
+  const groupList = document.getElementById('enemyGroupList');
+  if (groupList) {
+    if (battleState.active && total > 1) {
+      groupList.innerHTML = (battleState.enemies || []).map((e, idx) => {
+        const target = current && e === current;
+        return `<div class="enemy-chip ${target ? 'target' : ''} ${e.currentHp <= 0 ? 'dead' : ''}">${e.name} · ${Math.max(0, Math.floor(e.currentHp))}/${e.baseHp}</div>`;
+      }).join('');
+    } else if (battleState.active && current) {
+      groupList.innerHTML = `<div class="enemy-chip target">${current.name} · ${Math.max(0, Math.floor(current.currentHp))}/${current.baseHp}</div>`;
+    } else {
+      groupList.innerHTML = '';
+    }
+  }
+
+  const petBtn = document.getElementById('petSkillText');
+  if (petBtn) {
+    if (!pet) {
+      petBtn.textContent = '灵宠技：未跟随';
+    } else if (!isPetAliveV23() && battleState.active) {
+      petBtn.textContent = '灵宠技：已倒下';
+    } else {
+      const skill = getPetSkillDef(pet.id);
+      petBtn.textContent = skill ? `灵宠技：${skill.name}${battleState.petSkillCd > 0 ? `(${battleState.petSkillCd})` : ''}` : '灵宠技：暂无';
     }
   }
 };
@@ -6158,7 +6297,7 @@ renderOverview = function() {
   renderOverviewV22();
   const goalPanel = document.getElementById('goalPanel');
   if (goalPanel && !goalPanel.innerHTML.includes('多怪遭遇')) {
-    goalPanel.insertAdjacentHTML('beforeend', `<div class="tip-item"><b>多怪遭遇</b><small>当前版本里，普通战斗不一定只遇到 1 只小怪，可能会同时刷出 2 到 5 只。高阶地图越容易成群，灵宠也会一起掉血一起上场。</small></div>`);
+    goalPanel.insertAdjacentHTML('beforeend', `<div class="tip-item"><b>多怪遭遇</b><small>普通遭遇现在不一定只来一只，可能会同时来 2 到 5 只。灵宠也会有独立血条一起作战，所以后期不再是你一个人单刷整片地图。</small></div>`);
   }
 };
 
@@ -6174,12 +6313,12 @@ function bootFromStorageV23() {
     ensureV22State();
     ensureV23State();
     handleOfflineGain();
-    addLog('你从第二十三版存档中醒来。战斗已经切到多怪遭遇和灵宠参战模式。', 'rare');
+    addLog('你从第二十三版存档中醒来。多怪遭遇、灵宠血条共战和平衡调整都已接入。', 'rare');
     return true;
   }
   if (typeof bootFromStorageV22 === 'function' && bootFromStorageV22()) {
     ensureV23State();
-    addLog('已从第二十二版存档迁入第二十三版。战斗现在会遇到多只怪，灵宠也会一起掉血上场。', 'rare');
+    addLog('已从第二十二版存档迁入第二十三版。群怪战和灵宠共战会按新版逻辑运行。', 'rare');
     return true;
   }
   return false;
@@ -6196,7 +6335,7 @@ function saveGame() {
   ensureV23State();
   game.lastSeen = Date.now();
   localStorage.setItem(SAVE_KEY_V23, JSON.stringify(game));
-  addLog('第二十三版存档成功。多怪遭遇、灵宠血条和战斗平衡都会保留。', 'good');
+  addLog('第二十三版存档成功。多怪战、灵宠血条和新平衡都会一起保留。', 'good');
 }
 
 function loadGame() {
@@ -6221,7 +6360,7 @@ function resetGame() {
   ensureV22State();
   ensureV23State();
   if (typeof applyOpeningStyleOnceV17 === 'function') applyOpeningStyleOnceV17(game);
-  addLog(`新一世开启。第二十三版里，怪会成群出现，灵宠也会真的一起扛伤。`, 'rare');
+  addLog(`新一世开启，你觉醒灵根：${game.rootName}。这次普通遭遇会更热闹，灵宠也会真正一起挨打。`, 'rare');
   updateUI();
 }
 
@@ -6238,7 +6377,7 @@ function initV23() {
     ensureV23State();
     if (typeof applyOpeningStyleOnceV17 === 'function') applyOpeningStyleOnceV17(game);
     addLog(`你于尘世中醒来，觉醒灵根：${game.rootName}。`, 'rare');
-    addLog('第二十三版已开启：战斗重审了数值，普通遭遇可能同时出现 2 到 5 只怪，灵宠也会带着血条一起上。', 'muted');
+    addLog('第二十三版已开启：普通遭遇改成多怪同场，灵宠会带血条一起战斗，战斗数值也重新压过了一轮。', 'muted');
   }
   autoEquipBest(false);
   renderCombatPanel();
@@ -6246,6 +6385,7 @@ function initV23() {
   if (!gameTimer) gameTimer = setInterval(gameTick, 1000);
 }
 
+window.castPetSkill = castPetSkill;
 window.saveGame = saveGame;
 window.loadGame = loadGame;
 window.resetGame = resetGame;
@@ -6254,5 +6394,132 @@ window.addEventListener('beforeunload', () => {
   if (game && Object.keys(game).length) {
     game.lastSeen = Date.now();
     localStorage.setItem(SAVE_KEY_V23, JSON.stringify(game));
+  }
+});
+
+
+/* ===== V24 Day / Night Mode ===== */
+const SAVE_KEY_V24 = 'xiuxian_v24_save';
+const THEME_KEY_V24 = 'xiuxian_theme_v24';
+
+function getStoredThemeV24() {
+  try {
+    return localStorage.getItem(THEME_KEY_V24) || 'dark';
+  } catch (e) {
+    return 'dark';
+  }
+}
+
+function applyThemeV24(theme = 'dark') {
+  const body = document.body;
+  if (!body) return;
+  const normalized = theme === 'light' ? 'light' : 'dark';
+  body.classList.toggle('theme-light', normalized === 'light');
+  body.classList.toggle('theme-dark', normalized === 'dark');
+  try {
+    localStorage.setItem(THEME_KEY_V24, normalized);
+  } catch (e) {}
+  const btn = document.getElementById('themeToggleText');
+  if (btn) btn.textContent = normalized === 'light' ? '白天模式' : '夜间模式';
+}
+
+function toggleThemeV24() {
+  const next = document.body.classList.contains('theme-light') ? 'dark' : 'light';
+  applyThemeV24(next);
+  addLog(`界面已切换为${next === 'light' ? '白天' : '夜间'}模式。`, 'good');
+}
+
+function bootFromStorageV24() {
+  const direct = localStorage.getItem(SAVE_KEY_V24);
+  if (direct) {
+    game = JSON.parse(direct);
+    normalizeGame();
+    if (typeof ensureV18State === 'function') ensureV18State();
+    if (typeof ensureV19State === 'function') ensureV19State();
+    if (typeof ensureV20State === 'function') ensureV20State();
+    if (typeof ensureV21State === 'function') ensureV21State();
+    if (typeof ensureV22State === 'function') ensureV22State();
+    if (typeof ensureV23State === 'function') ensureV23State();
+    handleOfflineGain();
+    addLog('你从第二十四版存档中醒来。白天 / 夜间模式切换已就位。', 'rare');
+    return true;
+  }
+  if (typeof bootFromStorageV23 === 'function' && bootFromStorageV23()) {
+    addLog('已从第二十三版存档迁入第二十四版。界面新增白天 / 夜间模式。', 'rare');
+    return true;
+  }
+  return false;
+}
+
+const updateUIV23 = updateUI;
+updateUI = function() {
+  updateUIV23();
+  document.title = '凡尘问道录 · 第二十四版';
+  applyThemeV24(getStoredThemeV24());
+};
+
+function saveGame() {
+  game.lastSeen = Date.now();
+  localStorage.setItem(SAVE_KEY_V24, JSON.stringify(game));
+  addLog('第二十四版存档成功。当前界面模式也会一起记住。', 'good');
+}
+
+function loadGame() {
+  if (!bootFromStorageV24()) {
+    addLog('没有找到可读取的存档。', 'warn');
+    return;
+  }
+  autoEquipBest(false);
+  renderCombatPanel();
+  updateUI();
+}
+
+function resetGame() {
+  localStorage.removeItem(SAVE_KEY_V24);
+  const selectedStyle = (game && game.openingStyle) ? game.openingStyle : 'balanced';
+  game = createNewGame({ openingStyle: selectedStyle });
+  normalizeGame();
+  if (typeof ensureV18State === 'function') ensureV18State();
+  if (typeof ensureV19State === 'function') ensureV19State();
+  if (typeof ensureV20State === 'function') ensureV20State();
+  if (typeof ensureV21State === 'function') ensureV21State();
+  if (typeof ensureV22State === 'function') ensureV22State();
+  if (typeof ensureV23State === 'function') ensureV23State();
+  if (typeof applyOpeningStyleOnceV17 === 'function') applyOpeningStyleOnceV17(game);
+  addLog(`新一世开启，你觉醒灵根：${game.rootName}。这次界面支持白天和夜间模式切换。`, 'rare');
+  updateUI();
+}
+
+function initV24() {
+  applyThemeV24(getStoredThemeV24());
+  const hasSave = bootFromStorageV24();
+  if (!hasSave) {
+    game = createNewGame({ openingStyle: 'balanced' });
+    normalizeGame();
+    if (typeof ensureV18State === 'function') ensureV18State();
+    if (typeof ensureV19State === 'function') ensureV19State();
+    if (typeof ensureV20State === 'function') ensureV20State();
+    if (typeof ensureV21State === 'function') ensureV21State();
+    if (typeof ensureV22State === 'function') ensureV22State();
+    if (typeof ensureV23State === 'function') ensureV23State();
+    if (typeof applyOpeningStyleOnceV17 === 'function') applyOpeningStyleOnceV17(game);
+    addLog(`你于尘世中醒来，觉醒灵根：${game.rootName}。`, 'rare');
+    addLog('第二十四版已开启：UI 新增白天和夜间模式。', 'muted');
+  }
+  autoEquipBest(false);
+  renderCombatPanel();
+  updateUI();
+  if (!gameTimer) gameTimer = setInterval(gameTick, 1000);
+}
+
+window.toggleThemeV24 = toggleThemeV24;
+window.saveGame = saveGame;
+window.loadGame = loadGame;
+window.resetGame = resetGame;
+window.onload = initV24;
+window.addEventListener('beforeunload', () => {
+  if (game && Object.keys(game).length) {
+    game.lastSeen = Date.now();
+    localStorage.setItem(SAVE_KEY_V24, JSON.stringify(game));
   }
 });

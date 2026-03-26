@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>凡尘问道录 · 第二十三版</title>
+  <title>凡尘问道录 · 第二十四版</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -32,6 +32,7 @@
         <button class="small-btn" onclick="saveGame()">存档</button>
         <button class="small-btn" onclick="loadGame()">读档</button>
         <button class="small-btn" onclick="toggleCultivation()"><span id="cultivationBtnText">开始修炼</span></button>
+        <button class="small-btn" onclick="toggleThemeV24()"><span id="themeToggleText">夜间模式</span></button>
         <button class="small-btn danger-btn" onclick="resetGame()">重开</button>
       </div>
     </header>
@@ -153,7 +154,7 @@
               <div class="hero-log-card">
                 <div class="panel-title-row compact-row">
                   <h3>仙途日志</h3>
-                  <span class="tiny-tag">战报摘要</span>
+                  <span class="tiny-tag">人物面板下方</span>
                 </div>
                 <div id="logPanelOverview" class="hero-log-list"></div>
               </div>
@@ -215,7 +216,7 @@
               <div id="eventChainPanel"></div>
             </div>
             <div class="explore-card big-card">
-              <h3>Boss 房间</h3>
+              <h3>Boss 房间触发</h3>
               <div id="bossRoomPanel"></div>
             </div>
           </div>
@@ -443,16 +444,17 @@
                 <div id="playerHpBar" class="bar-fill hp-fill"></div>
               </div>
               <div class="bar-caption"><span id="playerHpText"></span></div>
-              <div id="petBattleBlock" class="pet-battle-block">
-                <div class="combat-name-row compact-name-row">
-                  <strong id="petBattleName">灵宠未参战</strong>
-                  <span id="petBattleStats">等待跟随</span>
-                </div>
-                <div class="bar-track hp pet">
-                  <div id="petHpBar" class="bar-fill pet-fill"></div>
-                </div>
-                <div class="bar-caption"><span id="petHpText">0 / 0</span></div>
+            </div>
+
+            <div class="combat-card pet-ally" id="petCombatCard">
+              <div class="combat-name-row">
+                <strong id="petBattleName">灵宠未出战</strong>
+                <span id="petBattleStats">待命</span>
               </div>
+              <div class="bar-track hp pet">
+                <div id="petHpBar" class="bar-fill pet-fill"></div>
+              </div>
+              <div class="bar-caption"><span id="petHpText"></span></div>
             </div>
 
             <div class="versus">VS</div>
@@ -466,7 +468,7 @@
                 <div id="monsterHpBar" class="bar-fill enemy-fill"></div>
               </div>
               <div class="bar-caption"><span id="monsterHpText"></span></div>
-              <div id="enemyGroupPanel" class="enemy-group-panel"></div>
+              <div id="enemyGroupList" class="enemy-group-list"></div>
             </div>
 
             <div class="combat-actions">
