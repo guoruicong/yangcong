@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>凡尘问道录 · 第二十三版</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="top-bar">
+      <div class="brand">
+        <div class="brand-mark">仙</div>
+        <div>
+          <h1>凡尘问道录</h1>
+          <p>主线、宗门阵营冲突、多个大结局</p>
+        </div>
+      </div>
+
+      <div class="top-stats">
+        <div class="chip"><span>姓名</span><strong id="nameTop"></strong></div>
+        <div class="chip"><span>灵根</span><strong id="rootTop"></strong></div>
+        <div class="chip"><span>境界</span><strong id="realmTop"></strong></div>
+        <div class="chip"><span>修为</span><strong id="expTop"></strong></div>
+        <div class="chip"><span>生命</span><strong id="lifeTop"></strong></div>
+        <div class="chip"><span>灵石</span><strong id="stoneTop"></strong></div>
+        <div class="chip"><span>战力</span><strong id="powerTop"></strong></div>
+        <div class="chip"><span>挂机</span><strong id="afkTop"></strong></div>
+      </div>
+
+      <div class="top-actions">
+        <button class="small-btn" onclick="saveGame()">存档</button>
+        <button class="small-btn" onclick="loadGame()">读档</button>
+        <button class="small-btn" onclick="toggleCultivation()"><span id="cultivationBtnText">开始修炼</span></button>
+        <button class="small-btn danger-btn" onclick="resetGame()">重开</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="left-panel panel">
+        <section class="panel-block">
+          <div class="panel-title-row">
+            <h2>导航</h2>
+            <span class="tiny-tag">响应式</span>
+          </div>
+          <div class="nav-grid">
+            <button class="nav-btn active" data-view="overview" onclick="setView('overview')">主页</button>
+            <button class="nav-btn" data-view="maps" onclick="setView('maps')">地图</button>
+            <button class="nav-btn" data-view="explore" onclick="setView('explore')">探索</button>
+            <button class="nav-btn" data-view="skills" onclick="setView('skills')">技能</button>
+            <button class="nav-btn" data-view="inventory" onclick="setView('inventory')">背包</button>
+            <button class="nav-btn" data-view="techniques" onclick="setView('techniques')">功法</button>
+            <button class="nav-btn" data-view="equipment" onclick="setView('equipment')">装备</button>
+            <button class="nav-btn" data-view="afk" onclick="setView('afk')">挂机</button>
+            <button class="nav-btn" data-view="alchemy" onclick="setView('alchemy')">炼丹</button>
+            <button class="nav-btn" data-view="shop" onclick="setView('shop')">商店</button>
+            <button class="nav-btn" data-view="pets" onclick="setView('pets')">灵宠</button>
+            <button class="nav-btn" data-view="sect" onclick="setView('sect')">宗门</button>
+            <button class="nav-btn" data-view="story" onclick="setView('story')">主线</button>
+            <button class="nav-btn" data-view="conflict" onclick="setView('conflict')">阵营</button>
+            <button class="nav-btn" data-view="endings" onclick="setView('endings')">结局</button>
+            <button class="nav-btn" data-view="rebirth" onclick="setView('rebirth')">轮回</button>
+            <button class="nav-btn" data-view="origin" onclick="setView('origin')">流派</button>
+            <button class="nav-btn" data-view="journal" onclick="setView('journal')">图鉴</button>
+            <button class="nav-btn" data-view="logs" onclick="setView('logs')">日志</button>
+          </div>
+        </section>
+
+        <section class="panel-block">
+          <div class="panel-title-row">
+            <h2>快捷操作</h2>
+            <span class="tiny-tag gold">摸鱼速通</span>
+          </div>
+          <div class="quick-grid">
+            <button onclick="quickExplore()">快速探索</button>
+            <button onclick="tryEncounter()">主动寻怪</button>
+            <button onclick="breakthrough()">尝试突破</button>
+            <button onclick="setView('alchemy')">去炼丹</button>
+            <button onclick="setView('shop')">去商店</button>
+            <button onclick="setView('pets')">看灵宠</button>
+            <button onclick="setView('equipment')">升装备</button>
+            <button onclick="setView('sect')">去宗门</button>
+            <button onclick="setView('story')">推主线</button>
+            <button onclick="setView('conflict')">看阵营</button>
+            <button onclick="setView('origin')">看流派</button>
+            <button onclick="usePotion('qiPill')">吃聚气丹</button>
+            <button onclick="usePotion('healPill')">吃回春丹</button>
+            <button onclick="autoEquipBest()">一键穿装</button>
+          </div>
+        </section>
+
+        <section class="panel-block grow">
+          <div class="panel-title-row">
+            <h2>移动 / 地图控制</h2>
+            <span class="tiny-tag">WASD / 方向键</span>
+          </div>
+
+          <div class="move-pad">
+            <button class="move-btn" onclick="movePlayer(0,-1)">↑</button>
+            <div class="move-row">
+              <button class="move-btn" onclick="movePlayer(-1,0)">←</button>
+              <button class="move-btn center-btn" onclick="inspectTile()">探</button>
+              <button class="move-btn" onclick="movePlayer(1,0)">→</button>
+            </div>
+            <button class="move-btn" onclick="movePlayer(0,1)">↓</button>
+          </div>
+
+          <div class="afk-mini">
+            <div class="kv"><span>当前地图</span><strong id="currentMapSide"></strong></div>
+            <div class="kv"><span>当前位置</span><strong id="playerPosSide"></strong></div>
+            <div class="kv"><span>挂机地图</span><strong id="afkMapSide"></strong></div>
+            <div class="kv"><span>键盘提示</span><strong>WASD / ↑↓←→ / Enter</strong></div>
+          </div>
+        </section>
+      </aside>
+
+      <section class="center-panel panel">
+        <div id="view-overview" class="view active">
+          <div class="section-head">
+            <div>
+              <h2>修士概况</h2>
+              <p>现在不只是修更高，你还会被拖进宗门阵营冲突，并一步步走向不同结局。</p>
+            </div>
+            <div class="head-actions">
+              <button class="inline-btn" onclick="toggleCultivation()"><span id="cultivationInlineText">开始修炼</span></button>
+              <button class="inline-btn" onclick="setView('maps')">去选地图</button>
+            </div>
+          </div>
+
+          <div class="overview-grid">
+            <div class="hero-card glass">
+              <div class="hero-main">
+                <div>
+                  <div class="overline">当前境界</div>
+                  <div class="hero-realm" id="heroRealm"></div>
+                </div>
+                <div class="hero-badges">
+                  <span class="badge" id="techBadge"></span>
+                  <span class="badge" id="weaponBadge"></span>
+                  <span class="badge" id="afkBadge"></span>
+                </div>
+              </div>
+
+              <div class="bar-block">
+                <div class="bar-top"><span>修为进度</span><span id="expText"></span></div>
+                <div class="bar-track large">
+                  <div id="expBar" class="bar-fill exp-fill"></div>
+                </div>
+              </div>
+
+              <div class="hero-stats" id="heroStats"></div>
+
+              <div class="hero-log-card">
+                <div class="panel-title-row compact-row">
+                  <h3>仙途日志</h3>
+                  <span class="tiny-tag">战报摘要</span>
+                </div>
+                <div id="logPanelOverview" class="hero-log-list"></div>
+              </div>
+            </div>
+
+            <div class="summary-card">
+              <h3>当前建议</h3>
+              <div id="goalPanel" class="tip-stack"></div>
+            </div>
+
+            <div class="summary-card">
+              <h3>地图掉落注释</h3>
+              <div id="dropNotesPanel" class="tip-stack"></div>
+            </div>
+
+            <div class="summary-card">
+              <h3>地图提示</h3>
+              <div id="mapHintPanel" class="tip-stack"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="view-maps" class="view">
+          <div class="section-head">
+            <div>
+              <h2>地图选择</h2>
+              <p>每张图都写明掉落、推荐境界、怪群构成和挂机收益。别拿命去试说明书写得多不多。</p>
+            </div>
+          </div>
+          <div id="mapList" class="card-list"></div>
+          <div class="section-divider">隐藏地图</div>
+          <div id="hiddenMapPanel" class="card-list"></div>
+        </div>
+
+        <div id="view-explore" class="view">
+          <div class="section-head">
+            <div>
+              <h2>探索与遭遇</h2>
+              <p>移动、踩点、开箱、采药、遇怪和精英战都会在这里反馈。你每走一步，地图都会更像地图。</p>
+            </div>
+            <div class="head-actions">
+              <button class="inline-btn" onclick="quickExplore()">快速探索</button>
+              <button class="inline-btn" onclick="tryEncounter()">主动寻怪</button>
+            </div>
+          </div>
+          <div class="explore-layout">
+            <div class="explore-card big-card">
+              <h3>当前地图说明</h3>
+              <div id="mapDetailPanel"></div>
+            </div>
+            <div class="explore-card big-card">
+              <h3>格子事件</h3>
+              <div id="tileEventPanel"></div>
+            </div>
+          </div>
+          <div class="event-extra-layout">
+            <div class="explore-card big-card">
+              <h3>地图事件链</h3>
+              <div id="eventChainPanel"></div>
+            </div>
+            <div class="explore-card big-card">
+              <h3>Boss 房间</h3>
+              <div id="bossRoomPanel"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="view-skills" class="view">
+          <div class="section-head">
+            <div>
+              <h2>主动技能</h2>
+              <p>现在不止平 A。技能会吃冷却和战斗节奏，终于有点“我在操作”的感觉了。</p>
+            </div>
+          </div>
+          <div id="skillList" class="card-list"></div>
+        </div>
+
+        <div id="view-inventory" class="view">
+          <div class="section-head">
+            <div>
+              <h2>背包</h2>
+              <p>材料、丹药、符箓和装备都会在这里结堆。背包不怕乱，怕的是你忘了吃药。</p>
+            </div>
+          </div>
+          <div id="inventoryList" class="card-list"></div>
+        </div>
+
+        <div id="view-techniques" class="view">
+          <div class="section-head">
+            <div>
+              <h2>功法</h2>
+              <p>功法继续影响修炼、打怪与挂机收益。不是文案，是你所有数值的后台老板。</p>
+            </div>
+          </div>
+          <div id="techniqueList" class="card-list"></div>
+        </div>
+
+        <div id="view-equipment" class="view">
+          <div class="section-head">
+            <div>
+              <h2>装备与词条</h2>
+              <p>地图掉装和一键穿装还在。木剑时代结束后，手感也终于有脸见人了。</p>
+            </div>
+            <div class="head-actions">
+              <button class="inline-btn" onclick="autoEquipBest()">一键穿装</button>
+            </div>
+          </div>
+          <div class="equipment-grid">
+            <div id="equippedPanel" class="panel-card"></div>
+            <div id="equipmentList" class="card-list"></div>
+          </div>
+        </div>
+
+        <div id="view-afk" class="view">
+          <div class="section-head">
+            <div>
+              <h2>挂机设置</h2>
+              <p>按地图挂机继续保留。你可以在安全图养老，也可以去高阶图赌材料和命。</p>
+            </div>
+          </div>
+          <div id="afkPanel" class="card-list"></div>
+        </div>
+
+        <div id="view-alchemy" class="view">
+          <div class="section-head">
+            <div>
+              <h2>炼丹</h2>
+              <p>打怪掉的材料终于有了归宿。丹药不再只靠捡，自己也能搓。</p>
+            </div>
+          </div>
+          <div id="alchemyPanel" class="card-list"></div>
+        </div>
+
+        <div id="view-shop" class="view">
+          <div class="section-head">
+            <div>
+              <h2>商店</h2>
+              <p>灵石终于不只是数字。买药、买材料、买灵宠蛋，缺啥补啥。</p>
+            </div>
+          </div>
+          <div id="shopPanel" class="card-list"></div>
+        </div>
+
+        <div id="view-pets" class="view">
+          <div class="section-head">
+            <div>
+              <h2>灵宠</h2>
+              <p>灵宠会给战斗、挂机和探索提供加成。你终于不是一个人被怪追了。</p>
+            </div>
+          </div>
+          <div id="petPanel" class="card-list"></div>
+        </div>
+
+
+        <div id="view-sect" class="view">
+          <div class="section-head">
+            <div>
+              <h2>宗门</h2>
+              <p>第十五版正式加入宗门系统。站队、做任务、攒贡献、换东西，终于不只是一个人闷头修了。</p>
+            </div>
+          </div>
+          <div id="sectPanel" class="card-list"></div>
+        </div>
+
+
+        <div id="view-story" class="view">
+          <div class="section-head">
+            <div>
+              <h2>剧情主线</h2>
+              <p>这一版开始，地图、宗门和境界终于被一条主线穿起来了。你不再只是练级，是在慢慢卷进更大的局。</p>
+            </div>
+          </div>
+          <div id="storyPanel" class="card-list"></div>
+        </div>
+
+        <div id="view-conflict" class="view">
+          <div class="section-head">
+            <div>
+              <h2>宗门阵营冲突</h2>
+              <p>四宗不再只是发任务和给加成，立场开始真的冲突。你站哪边，后面就会长成哪种命。</p>
+            </div>
+          </div>
+          <div id="conflictPanel" class="card-list"></div>
+        </div>
+
+        <div id="view-endings" class="view">
+          <div class="section-head">
+            <div>
+              <h2>多个大结局</h2>
+              <p>结局不再只有一种。你可以守正问天，也可以赤焰称王，甚至把整盘局都玩成自己的样子。</p>
+            </div>
+          </div>
+          <div id="endingPanel" class="card-list"></div>
+        </div>
+
+        <div id="view-rebirth" class="view">
+          <div class="section-head">
+            <div>
+              <h2>轮回重生</h2>
+              <p>这一世不管修到哪，都会给下一世留点底子。至少不至于白肝。</p>
+            </div>
+          </div>
+          <div id="rebirthPanel" class="card-list"></div>
+        </div>
+
+
+        <div id="view-origin" class="view">
+          <div class="section-head">
+            <div>
+              <h2>开局流派</h2>
+              <p>这一世的出生，不再只是随机开卷。你可以决定下一世是剑修、丹修、御兽还是商道起手。</p>
+            </div>
+          </div>
+          <div id="originPanel" class="card-list"></div>
+        </div>
+
+        <div id="view-logs" class="view">
+          <div class="section-head">
+            <div>
+              <h2>仙途日志</h2>
+              <p>这里会完整显示最近的探索、战斗、炼丹、宗门与主线记录。屏幕再挤也不怕看不见。</p>
+            </div>
+            <div class="head-actions">
+              <button class="inline-btn" onclick="saveGame()">立即存档</button>
+              <button class="inline-btn" onclick="setView('overview')">返回主页</button>
+            </div>
+          </div>
+          <div id="logPanelMain" class="card-list log-list-main"></div>
+        </div>
+
+        <div id="view-journal" class="view">
+          <div class="section-head">
+            <div>
+              <h2>图鉴与记录</h2>
+              <p>打过的怪、到过的图、捡过的装备、用过的技能，都会被你慢慢写进修仙流水账。</p>
+            </div>
+          </div>
+          <div class="journal-grid">
+            <div class="panel-card">
+              <h3>已发现地图</h3>
+              <div id="journalMaps"></div>
+            </div>
+            <div class="panel-card">
+              <h3>已击败怪物</h3>
+              <div id="journalMonsters"></div>
+            </div>
+            <div class="panel-card">
+              <h3>拾取装备</h3>
+              <div id="journalGear"></div>
+            </div>
+            <div class="panel-card">
+              <h3>探索数据</h3>
+              <div id="journalStats"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="right-panel panel">
+        <section class="panel-block minimap-block">
+          <div class="panel-title-row">
+            <h2>小地图</h2>
+            <span class="tiny-tag rare" id="miniMapName"></span>
+          </div>
+          <div id="miniMap" class="mini-map"></div>
+          <div class="legend">
+            <span><i class="legend-box player-box"></i>你</span>
+            <span><i class="legend-box monster-box"></i>怪</span>
+            <span><i class="legend-box treasure-box"></i>宝</span>
+            <span><i class="legend-box herb-box"></i>药</span>
+            <span><i class="legend-box boss-box"></i>精英</span>
+          </div>
+        </section>
+
+        <section class="panel-block">
+          <div class="panel-title-row">
+            <h2>战斗面板</h2>
+            <span class="tiny-tag danger" id="battleStateText">空闲</span>
+          </div>
+          <div class="combat-panel">
+            <div class="combat-card player">
+              <div class="combat-name-row">
+                <strong id="playerBattleName">你</strong>
+                <span id="playerBattleStats"></span>
+              </div>
+              <div class="bar-track hp">
+                <div id="playerHpBar" class="bar-fill hp-fill"></div>
+              </div>
+              <div class="bar-caption"><span id="playerHpText"></span></div>
+              <div id="petBattleBlock" class="pet-battle-block">
+                <div class="combat-name-row compact-name-row">
+                  <strong id="petBattleName">灵宠未参战</strong>
+                  <span id="petBattleStats">等待跟随</span>
+                </div>
+                <div class="bar-track hp pet">
+                  <div id="petHpBar" class="bar-fill pet-fill"></div>
+                </div>
+                <div class="bar-caption"><span id="petHpText">0 / 0</span></div>
+              </div>
+            </div>
+
+            <div class="versus">VS</div>
+
+            <div class="combat-card monster">
+              <div class="combat-name-row">
+                <strong id="monsterBattleName">暂无敌人</strong>
+                <span id="monsterBattleStats">等待遭遇</span>
+              </div>
+              <div class="bar-track hp enemy">
+                <div id="monsterHpBar" class="bar-fill enemy-fill"></div>
+              </div>
+              <div class="bar-caption"><span id="monsterHpText"></span></div>
+              <div id="enemyGroupPanel" class="enemy-group-panel"></div>
+            </div>
+
+            <div class="combat-actions">
+              <button onclick="playerAttack()">攻击</button>
+              <button onclick="castSkill('slash')">剑气斩</button>
+              <button onclick="castSkill('guard')">护体诀</button>
+              <button onclick="castSkill('thunder')">雷击术</button>
+              <button onclick="usePotion('healPill', true)">回血丹</button>
+              <button onclick="runAway()">撤退</button>
+              <button onclick="toggleAutoBattle()"><span id="autoBattleText">自动战斗：关</span></button>
+              <button onclick="castPetSkill()"><span id="petSkillText">灵宠技：未激活</span></button>
+            </div>
+
+            <div id="skillCooldownPanel" class="cooldown-panel"></div>
+            <div id="combatFeed" class="combat-feed"></div>
+          </div>
+        </section>
+
+        <section class="panel-block grow">
+          <div class="panel-title-row">
+            <h2>仙途日志</h2>
+            <span class="tiny-tag">最近事件</span>
+          </div>
+          <div id="logPanel" class="log-panel"></div>
+        </section>
+      </aside>
+    </main>
+  </div>
+  <script src="main.js"></script>
+</body>
+</html>
